@@ -7,14 +7,19 @@ from inngest.experimental import ai
 import uuid
 import os
 import datetime
+import sys
 from pathlib import Path
+
+# Provide absolute path to root .env
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
+
+# Ensure Python can resolve modules in the src/ directory
+sys.path.append(str(PROJECT_ROOT))
+
 from src.backend.data_loader import load_and_chunk_pdf, embed_texts
 from src.backend.qdrant_db import QdrantStorage
 from src.backend.schemas import RAQQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
-
-
-# Provide absolute path to root .env
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent.parent / ".env")
 
 qdrant_storage = QdrantStorage(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"), dims=int(os.getenv("EMBED_DIM")))
 
