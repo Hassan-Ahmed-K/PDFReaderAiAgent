@@ -114,3 +114,10 @@ def read_root():
     return {"msg": "API running"}
     
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
+
+if __name__ == "__main__":
+    import uvicorn
+    # Render assigns a dynamic port via the PORT environment variable. 
+    # This automatically catches it and binds to 0.0.0.0
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("src.backend.main:app", host="0.0.0.0", port=port)
