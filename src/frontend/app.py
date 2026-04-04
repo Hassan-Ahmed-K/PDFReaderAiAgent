@@ -17,7 +17,7 @@ st.set_page_config(page_title="RAG Ingest PDF", page_icon="📄", layout="center
 
 @st.cache_resource
 def get_inngest_client() -> inngest.Inngest:
-    return inngest.Inngest(app_id="rag_app", is_production=True)
+    return inngest.Inngest(app_id="rag_app",event_key=os.getenv("INNGEST_EVENT_KEY"), is_production=True)
 
 
 def save_uploaded_pdf(file) -> Path:
@@ -37,7 +37,7 @@ async def send_rag_ingest_event(pdf_path: Path) -> None:
         inngest.Event(
             name="rag/ingest_pdf",
             data={
-                "pdf_path": str(pdf_path.resolve()),
+                "pdf_path": pdf_path.name,
                 "source_id": pdf_path.name,
             },
         )

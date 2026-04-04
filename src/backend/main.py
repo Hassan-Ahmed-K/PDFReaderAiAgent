@@ -30,6 +30,7 @@ inngest_client = inngest.Inngest(
     logger=logging.getLogger("uvicorn"),
     serializer=inngest.PydanticSerializer(),
     signing_key=os.getenv("INNGEST_SIGNING_KEY"),
+    event_key=os.getenv("INNGEST_EVENT_KEY"),
     is_production=True
 )
 
@@ -39,9 +40,14 @@ inngest_client = inngest.Inngest(
 )
 async def rag_ingest_pdf(ctx: inngest.Context):
     def _load(ctx: inngest.Context) -> RAGChunkAndSrc:
-        pdf_path = ctx.event.data["pdf_path"]
-        source_id = ctx.event.data.get("source_id", pdf_path)
-        chunks = load_and_chunk_pdf(pdf_path)
+        pdf_path_str = ctx.event.data["pdf_path"]
+        source_id = ctx.event.data.get("source_id", pdf_path_str)
+        
+        # Extract filename to handle old Windows absolute paths in the queue
+        filename = os.path.basename(pdf_path_str.replace('\\', '/'))
+        actual_pdf_path = str(PROJECT_ROOT / "uploads" / filename)
+        
+        chunks = load_and_chunk_pdf(actual_pdf_path)
         return RAGChunkAndSrc(chunks=chunks, source_id=source_id)
 
     def _upsert(chunks_and_src: RAGChunkAndSrc) -> RAGUpsertResult:
