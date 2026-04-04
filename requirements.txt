@@ -1,0 +1,11 @@
+fastapi==0.135.2
+uvicorn==0.41.0
+inngest==0.5.18
+python-dotenv
+openai==2.24.0
+llama-index-core==0.14.19
+llama-index-readers-file==0.6.0
+qdrant-client==1.17.1
+pydantic
+requests
+streamlit==1.55.0
