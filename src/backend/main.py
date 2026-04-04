@@ -22,7 +22,6 @@ sys.path.append(str(PROJECT_ROOT))
 from src.backend.data_loader import load_and_chunk_pdf, embed_texts
 from src.backend.qdrant_db import QdrantStorage
 from src.backend.schemas import RAQQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
-from inngest.fastapi import InngestMiddleware
 
 qdrant_storage = QdrantStorage(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"), dims=int(os.getenv("EMBED_DIM")))
 
@@ -113,7 +112,6 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     return result.model_dump()
 
 app = FastAPI()
-app.add_middleware(InngestMiddleware, client=inngest_client)
 
 @app.get("/")
 def read_root():
