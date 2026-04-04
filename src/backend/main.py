@@ -9,17 +9,16 @@ import os
 import datetime
 import sys
 from pathlib import Path
+from src.backend.data_loader import load_and_chunk_pdf, embed_texts
+from src.backend.qdrant_db import QdrantStorage
+from src.backend.schemas import RAQQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
+from inngest.fastapi import InngestMiddleware
 
 # Provide absolute path to root .env
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
-
 # Ensure Python can resolve modules in the src/ directory
 sys.path.append(str(PROJECT_ROOT))
-
-from src.backend.data_loader import load_and_chunk_pdf, embed_texts
-from src.backend.qdrant_db import QdrantStorage
-from src.backend.schemas import RAQQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
 
 qdrant_storage = QdrantStorage(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"), dims=int(os.getenv("EMBED_DIM")))
 
@@ -69,9 +68,6 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     top_k = int(ctx.event.data.get("top_k", 5))
 
     found = await ctx.step.run("embed-and-search", lambda: _search(question, top_k), output_type=RAGSearchResult)
-    
-
-    print("found = ", found)
 
     context_block = "\n\n".join(f"- {c}" for c in found.contexts)
     user_content = (
@@ -113,6 +109,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     return result.model_dump()
 
 app = FastAPI()
+app.add_middleware(InngestMiddleware, client=inngest_client)
 
 @app.get("/")
 def read_root():
