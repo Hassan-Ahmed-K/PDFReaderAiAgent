@@ -17,7 +17,7 @@ st.set_page_config(page_title="RAG Ingest PDF", page_icon="📄", layout="center
 
 @st.cache_resource
 def get_inngest_client() -> inngest.Inngest:
-    return inngest.Inngest(app_id="rag_app", is_production=False)
+    return inngest.Inngest(app_id="rag_app", is_production=True)
 
 
 def save_uploaded_pdf(file) -> Path:
@@ -83,7 +83,12 @@ def _inngest_api_base() -> str:
 
 def fetch_runs(event_id: str) -> list[dict]:
     url = f"{_inngest_api_base()}/events/{event_id}/runs"
-    resp = requests.get(url)
+    headers = {}
+    rest_api_key = os.getenv("INNGEST_REST_API_KEY")
+    if rest_api_key:
+        headers["Authorization"] = f"Bearer {rest_api_key}"
+
+    resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     data = resp.json()
     return data.get("data", [])

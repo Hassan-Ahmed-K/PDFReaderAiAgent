@@ -28,8 +28,9 @@ qdrant_storage = QdrantStorage(url=os.getenv("QDRANT_URL"), api_key=os.getenv("Q
 inngest_client = inngest.Inngest(
     app_id="rag_app",
     logger=logging.getLogger("uvicorn"),
-    is_production=False,
-    serializer=inngest.PydanticSerializer()
+    serializer=inngest.PydanticSerializer(),
+    signing_key=os.getenv("INNGEST_SIGNING_KEY"),
+    is_production=True
 )
 
 @inngest_client.create_function(
