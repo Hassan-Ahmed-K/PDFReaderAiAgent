@@ -23,6 +23,7 @@ from src.backend.data_loader import load_and_chunk_pdf, embed_texts
 from src.backend.qdrant_db import QdrantStorage
 from src.backend.schemas import RAQQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
 
+
 qdrant_storage = QdrantStorage(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_API_KEY"), dims=int(os.getenv("EMBED_DIM")))
 
 inngest_client = inngest.Inngest(
@@ -123,6 +124,19 @@ app = FastAPI()
 @app.get("/")
 def read_root():
     return {"msg": "API running"}
+
+from fastapi import File, UploadFile
+import shutil
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    # Save the uploaded file to exactly where the Render backend will look for it
+    uploads_dir = PROJECT_ROOT / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    file_path = uploads_dir / file.filename
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"filename": file.filename, "msg": "File successfully transferred to Render backend"}
     
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
 

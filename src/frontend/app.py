@@ -28,6 +28,18 @@ def save_uploaded_pdf(file) -> Path:
     file_path = uploads_dir / file.name
     file_bytes = file.getbuffer()
     file_path.write_bytes(file_bytes)
+    
+    # Upload to FastAPI backend if it's running remotely or separately
+    fastapi_url = os.getenv("FASTAPI_URL", "http://127.0.0.1:8000")
+    try:
+        with open(file_path, "rb") as f:
+            files = {"file": (file.name, f, "application/pdf")}
+            response = requests.post(f"{fastapi_url}/api/upload", files=files)
+            response.raise_for_status()
+    except Exception as e:
+        # We don't fail hard here in case everything is local, but it's printed
+        print(f"Failed to copy file to backend ({fastapi_url}): {e}")
+
     return file_path
 
 
@@ -37,7 +49,7 @@ async def send_rag_ingest_event(pdf_path: Path) -> None:
         inngest.Event(
             name="rag/ingest_pdf",
             data={
-                "pdf_path": pdf_path.name,
+                "pdf_path": str(pdf_path.resolve()),
                 "source_id": pdf_path.name,
             },
         )
