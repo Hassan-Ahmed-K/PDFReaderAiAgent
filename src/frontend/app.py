@@ -1,13 +1,12 @@
 import asyncio
 import time
-from pathlib import Path
+import os
 import requests
 import streamlit as st
 import inngest
-import os
 
 # -------------------------------
-# CONFIG (Secrets)
+# CONFIG
 # -------------------------------
 def get_secret(key, default=None):
     try:
@@ -16,17 +15,21 @@ def get_secret(key, default=None):
         return os.getenv(key, default)
 
 INNGEST_EVENT_KEY = get_secret("INNGEST_EVENT_KEY")
-INNGEST_REST_API_KEY = get_secret("INNGEST_REST_API_KEY")
-INNGEST_API_BASE = get_secret("INNGEST_API_BASE", "https://api.inngest.com/v1")
-FASTAPI_URL = get_secret("FASTAPI_URL")
+FASTAPI_URL = get_secret("FASTAPI_URL", "https://pdfreaderaiagent.onrender.com")
 
 # -------------------------------
 # STREAMLIT SETUP
 # -------------------------------
 st.set_page_config(page_title="RAG PDF App", page_icon="📄")
 
+# -------------------------------
+# INNGEST CLIENT
+# -------------------------------
 @st.cache_resource
 def get_client():
+    if not INNGEST_EVENT_KEY:
+        raise ValueError("❌ Missing INNGEST_EVENT_KEY")
+
     return inngest.Inngest(
         app_id="rag_app",
         event_key=INNGEST_EVENT_KEY,
@@ -34,48 +37,41 @@ def get_client():
     )
 
 # -------------------------------
-# UPLOAD TO BACKEND
+# UPLOAD FILE TO FASTAPI
 # -------------------------------
 def upload_to_backend(file):
     files = {"file": (file.name, file.getvalue(), "application/pdf")}
     response = requests.post(f"{FASTAPI_URL}/api/upload", files=files)
+
+    st.write("STATUS:", response.status_code)
+    st.write("RESPONSE:", response.text)
+
     response.raise_for_status()
 
-    return response.json()["file_path"]  # ✅ IMPORTANT
+    data = response.json()
+
+    return data["file_path"], data["filename"]
 
 # -------------------------------
 # SEND INGEST EVENT
 # -------------------------------
-async def send_ingest(path, filename):
+async def send_ingest(file_path, filename):
     client = get_client()
 
-    await client.send(
+    result = await client.send(
         inngest.Event(
             name="rag/ingest_pdf",
             data={
-                "pdf_path": path,          # ✅ SERVER PATH
+                "pdf_path": file_path,
                 "source_id": filename,
             },
         )
     )
 
-# -------------------------------
-# UI - UPLOAD
-# -------------------------------
-st.title("📄 Upload PDF")
-
-file = st.file_uploader("Upload PDF", type=["pdf"])
-
-if file:
-    with st.spinner("Uploading..."):
-        backend_path = upload_to_backend(file)
-        asyncio.run(send_ingest(backend_path, file.name))
-        time.sleep(0.3)
-
-    st.success("✅ Ingest triggered")
+    return result[0]
 
 # -------------------------------
-# QUERY EVENT
+# SEND QUERY EVENT
 # -------------------------------
 async def send_query(question, top_k):
     client = get_client()
@@ -83,49 +79,45 @@ async def send_query(question, top_k):
     result = await client.send(
         inngest.Event(
             name="rag/query_pdf_ai",
-            data={"question": question, "top_k": top_k},
+            data={
+                "question": question,
+                "top_k": top_k,
+            },
         )
     )
 
     return result[0]
 
-def fetch_runs(event_id):
-    url = f"{INNGEST_API_BASE}/events/{event_id}/runs"
-    headers = {"Authorization": f"Bearer {INNGEST_REST_API_KEY}"}
+# -------------------------------
+# UI - UPLOAD SECTION
+# -------------------------------
+st.title("📄 PDF RAG System")
 
-    res = requests.get(url, headers=headers)
-    res.raise_for_status()
-    return res.json().get("data", [])
+file = st.file_uploader("Upload PDF", type=["pdf"])
 
-def wait_for_output(event_id):
-    start = time.time()
+if file:
+    with st.spinner("Uploading file..."):
+        file_path, filename = upload_to_backend(file)
 
-    while True:
-        runs = fetch_runs(event_id)
+    with st.spinner("Sending ingestion event..."):
+        event_id = asyncio.run(send_ingest(file_path, filename))
 
-        if runs:
-            run = runs[0]
-            status = run.get("status")
-
-            if status in ("Completed", "Succeeded"):
-                return run.get("output", {})
-
-        if time.time() - start > 120:
-            raise TimeoutError("Timeout waiting for response")
-
-        time.sleep(0.5)
+    st.success("✅ PDF sent for processing")
+    st.info(f"Event ID: {event_id}")
 
 # -------------------------------
-# UI - QUERY
+# UI - QUESTION SECTION
 # -------------------------------
-st.title("💬 Ask Question")
+st.divider()
+st.title("💬 Ask Questions")
 
-q = st.text_input("Question")
-k = st.number_input("Top K", 1, 10, 5)
+question = st.text_input("Ask something about your PDFs")
+top_k = st.number_input("Top K", min_value=1, max_value=10, value=5)
 
-if st.button("Ask") and q:
-    with st.spinner("Thinking..."):
-        eid = asyncio.run(send_query(q, int(k)))
-        output = wait_for_output(eid)
+if st.button("Ask") and question.strip():
+    with st.spinner("Sending query to AI..."):
+        event_id = asyncio.run(send_query(question.strip(), int(top_k)))
 
-        st.write(output.get("answer", "No answer"))
+    st.success("✅ Query sent to Inngest")
+    st.info("💡 Answer will be generated by backend automatically")
+    st.code(f"Event ID: {event_id}")
