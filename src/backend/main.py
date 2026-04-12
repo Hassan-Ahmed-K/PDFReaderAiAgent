@@ -177,15 +177,7 @@ Answer the question:
 
 # ==============================
 # INNGEST ROUTER (CRITICAL FIX)
-# ==============================
-from inngest.fast_api import create_handler
-
-handler = create_handler(
-    client=inngest_client,
-    functions=[rag_ingest_pdf, rag_query_pdf_ai]
-)
-
-app.include_router(handler, prefix="/api/inngest")
+inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
 
 # ==============================
 # RUN SERVER
