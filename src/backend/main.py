@@ -2,6 +2,7 @@ import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile
 import inngest
+import inngest.fast_api
 from inngest.experimental import ai
 import uuid
 import os
