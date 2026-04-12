@@ -9,3 +9,4 @@ qdrant-client==1.17.1
 pydantic
 requests
 streamlit==1.55.0
+python-multipart
