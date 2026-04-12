@@ -49,6 +49,9 @@ inngest_client = inngest.Inngest(
     is_production=True
 )
 
+
+RESULT_STORE = {}
+
 # ==============================
 # FASTAPI APP
 # ==============================
