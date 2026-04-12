@@ -14,8 +14,10 @@ def get_secret(key, default=None):
     except Exception:
         return os.getenv(key, default)
 
-INNGEST_EVENT_KEY = get_secret("INNGEST_EVENT_KEY")
-FASTAPI_URL = get_secret("FASTAPI_URL", "https://pdfreaderaiagent.onrender.com")
+INNGEST_EVENT_KEY = get_secret("INNGEST_EVENT_KEY","uTah3eSR2Mi5RA0oBI4EmfLj34qO-Wk0Q0XCJyQaZ3ExMXDCMOfQ3R-4qFO4NuJGOo5ZsSkWzWOsTJPnl7t8FQ") 
+INNGEST_REST_API_KEY = get_secret("INNGEST_REST_API_KEY","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6OTk1NmE2OGYtZTQ3ZC00ZWI5LWJmZDctMDdhYmMyZjllMTZkIn0.6jqqm-GcYlt3uAe88tHvQSTSpSTjKguR_XCx3LvaYOU") 
+INNGEST_API_BASE = get_secret("INNGEST_API_BASE", "https://api.inngest.com/v1")
+FASTAPI_URL = get_secret("FASTAPI_URL","https://pdfreaderaiagent.onrender.com")
 
 # -------------------------------
 # STREAMLIT SETUP
