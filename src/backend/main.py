@@ -79,6 +79,11 @@ async def upload_file(file: UploadFile = File(...)):
         "filename": file.filename
     }
 
+@app.get("/api/result/{event_id}")
+def get_result(event_id: str):
+    return RESULT_STORE.get(event_id, {"status": "processing"})
+
+
 # ==============================
 # INNGEST FUNCTION: INGEST PDF
 # ==============================
