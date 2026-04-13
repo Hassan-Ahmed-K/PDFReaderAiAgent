@@ -79,6 +79,13 @@ async def upload_file(file: UploadFile = File(...)):
         "filename": file.filename
     }
 
+
+# ==============================
+# RESULT STORE (KEEP BUT FIXED USAGE)
+# ==============================
+RESULT_STORE = {}
+
+
 @app.get("/api/result/{event_id}")
 def get_result(event_id: str):
     return RESULT_STORE.get(event_id, {"status": "processing"})
@@ -95,35 +102,46 @@ async def rag_ingest_pdf(ctx: inngest.Context):
 
     def _load():
         pdf_path = ctx.event.data["pdf_path"]
-        source_id = ctx.event.data.get("source_id", pdf_path)
 
-        filename = os.path.basename(pdf_path.replace("\\", "/"))
-        actual_path = PROJECT_ROOT / "uploads" / filename
+        # 🔥 FIX #1 (CHANGED LINE)
+        actual_path = pdf_path   # ✅ use direct uploaded path (NO PROJECT_ROOT rebuild)
 
-        chunks = load_and_chunk_pdf(str(actual_path))
-        return RAGChunkAndSrc(chunks=chunks, source_id=source_id)
+        chunks = load_and_chunk_pdf(actual_path)
+
+        return RAGChunkAndSrc(
+            chunks=chunks,
+            source_id=ctx.event.data.get("source_id", pdf_path)
+        )
 
     def _upsert(data: RAGChunkAndSrc):
-        vecs = embed_texts(data.chunks)
+
+        # 🔥 FIX #2 (ADDED SAFETY)
+        clean_chunks = [c.strip() for c in data.chunks if c and c.strip()]
+
+        if not clean_chunks:
+            raise ValueError("No valid chunks extracted from PDF")
+
+        vecs = embed_texts(clean_chunks)
 
         ids = [
             str(uuid.uuid5(uuid.NAMESPACE_URL, f"{data.source_id}:{i}"))
-            for i in range(len(data.chunks))
+            for i in range(len(clean_chunks))
         ]
 
         payloads = [
-            {"source": data.source_id, "text": data.chunks[i]}
-            for i in range(len(data.chunks))
+            {"source": data.source_id, "text": clean_chunks[i]}
+            for i in range(len(clean_chunks))
         ]
 
         qdrant_storage.upsert(ids, vecs, payloads)
 
-        return RAGUpsertResult(ingested=len(data.chunks))
+        return RAGUpsertResult(ingested=len(clean_chunks))
 
     chunks = await ctx.step.run("load", _load, output_type=RAGChunkAndSrc)
     result = await ctx.step.run("upsert", lambda: _upsert(chunks), output_type=RAGUpsertResult)
 
     return result.model_dump()
+
 
 # ==============================
 # INNGEST FUNCTION: QUERY
@@ -143,22 +161,18 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
 
         return RAGSearchResult(**found)
 
-    found = await ctx.step.run(
-        "search",
-        _search,
-        output_type=RAGSearchResult
-    )
+    found = await ctx.step.run("search", _search, output_type=RAGSearchResult)
 
     context = "\n\n".join(found.contexts)
 
     prompt = f"""
-                Use the context below to answer.
+Use the context below to answer.
 
-                Context:
-                {context}
+Context:
+{context}
 
-                Answer the question:
-                """
+Answer the question:
+"""
 
     adapter = ai.openai.Adapter(
         auth_key=os.getenv("OPENAI_API"),
@@ -178,21 +192,21 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
 
     answer = res["choices"][0]["message"]["content"]
 
+    # 🔥 FIX #3 (ADDED SAFE STORE)
     RESULT_STORE[ctx.event.id] = {
         "answer": answer,
         "sources": found.sources,
         "num_contexts": len(found.contexts)
     }
 
-    return {
-        "answer": answer,
-        "sources": found.sources,
-        "num_contexts": len(found.contexts)
-    }
+    return RESULT_STORE[ctx.event.id]
+
 
 # ==============================
-# INNGEST ROUTER (CRITICAL FIX)
+# INNGEST ROUTER
+# ==============================
 inngest.fast_api.serve(app, inngest_client, [rag_ingest_pdf, rag_query_pdf_ai])
+
 
 # ==============================
 # RUN SERVER
