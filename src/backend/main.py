@@ -152,13 +152,13 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     context = "\n\n".join(found.contexts)
 
     prompt = f"""
-Use the context below to answer.
+                Use the context below to answer.
 
-Context:
-{context}
+                Context:
+                {context}
 
-Answer the question:
-"""
+                Answer the question:
+                """
 
     adapter = ai.openai.Adapter(
         auth_key=os.getenv("OPENAI_API"),
@@ -177,6 +177,12 @@ Answer the question:
     )
 
     answer = res["choices"][0]["message"]["content"]
+
+    RESULT_STORE[ctx.event.id] = {
+        "answer": answer,
+        "sources": found.sources,
+        "num_contexts": len(found.contexts)
+    }
 
     return {
         "answer": answer,
