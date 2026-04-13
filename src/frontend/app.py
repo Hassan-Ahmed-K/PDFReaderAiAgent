@@ -33,6 +33,13 @@ print("FAST_API_URL", FASTAPI_URL)
 # -------------------------------
 st.set_page_config(page_title="RAG PDF App", page_icon="📄", layout="centered")
 
+def run_async(coro):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(coro)
+    loop.close()
+    return result
+
 # -------------------------------
 # 🟢 BACKEND LOADER (RUN ONCE, 90s)
 # -------------------------------
@@ -55,6 +62,8 @@ def wait_for_backend(timeout=90):
                 st.stop()
 
             time.sleep(2)
+
+
 
 
 if "backend_ready" not in st.session_state:
@@ -151,7 +160,7 @@ file = st.file_uploader("Drop your PDF here", type=["pdf"])
 if file:
     with st.spinner("Uploading & indexing..."):
         file_path, filename = upload_to_backend(file)
-        event_id = asyncio.run(send_ingest(file_path, filename))
+        event_id = run_async(send_ingest(file_path, filename))
 
     st.success("PDF uploaded successfully")
     st.caption(f"Ingest Event ID: {event_id}")
@@ -169,7 +178,7 @@ top_k = st.slider("Context Depth (Top K)", 1, 20, 5)
 if st.button("🚀 Ask AI") and question.strip():
 
     with st.spinner("Sending query to AI..."):
-        event_id = asyncio.run(send_query(question.strip(), int(top_k)))
+        event_id = run_async(send_query(question.strip(), int(top_k)))
 
     st.caption(f"Event ID: {event_id}")
 
